@@ -1,0 +1,41 @@
+name: Github Actions Workflow
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  ANYPOINT_CLIENT_ID: ${{ secrets.CONNECTED_APP_CLIENT_ID }}
+  ANYPOINT_CLIENT_SECRET: ${{ secrets.CONNECTED_APP_CLIENT_SECRET }}
+  ANYPOINT_ORG: be8a3e1e-16ca-4dc1-b571-36813fc3681b
+  ANYPOINT_ENV: Sandbox
+
+jobs:
+  anypoint-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+      - name: Set up NodeJS 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Anypoint CLI
+        run: |
+          npm install -g anypoint-cli-v4
+      - name: Install Anypoint Catalog CLI
+        run: |
+          npm install -g api-catalog-cli@latest
+      - name: "Install yq (YAML Processor)"
+        run: |
+          curl -sLo /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.20.2/yq_linux_amd64
+          chmod +x /usr/local/bin/yq
+      - name: "Find and Run Descriptor Command"
+        run: |
+            api-catalog create-descriptor -d catalog.yaml
+      - name: "Modify Descriptor file with tags and catagories"
+        run: |
+            yq eval '.projects[] |= . + {"tags": ["sys", "clitest"], "categories": {"Domain": ["Healthcare"]}, "documentation": {"Home": "README.md"}}' -i catalog.yaml
+      - name: Publish to exchange
+        run: |
+          api-catalog publish-asset -d catalog.yaml --force-publish
